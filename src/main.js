@@ -30,73 +30,81 @@ const renderChart = () => {
     .append("g")
     .attr("transform", `translate(${margin.left}, ${margin.top})`);
 
-  //define scale
-  const xScale = d3.scaleTime().range([0, width]);
-  const yScale = d3.scaleLinear().range([height, 0]);
+  d3.json(url)
+    .then(({ data }) => {
+      //map the data as objects
+      //covert date string into dates
+      const mappedData = data.map((d) => ({ date: new Date(d[0]), gdp: d[1] }));
+      const barWidth = width / mappedData.length;
 
-  //define axes
-  const xAxis = d3.axisBottom(xScale);
-  const yAxis = d3.axisLeft(yScale);
+      //define scales
+      const xScale = d3
+        .scaleTime()
+        .domain(d3.extent(mappedData, (d) => d.date))
+        .range([0, width]);
 
-  d3.json(url).then(({ data }) => {
-    //map the data as objects
-    //covert date string into dates
-    const mappedData = data.map((d) => ({ date: new Date(d[0]), gdp: d[1] }));
+      const yScale = d3
+        .scaleLinear()
+        .domain([0, d3.max(mappedData, (d) => d.gdp)])
+        .range([height, 0]);
 
-    //set axis domain
-    xScale.domain(d3.extent(mappedData, (d) => d.date));
-    yScale.domain([0, d3.max(mappedData, (d) => d.gdp)]);
+      //define axes
+      const xAxis = d3.axisBottom().scale(xScale);
+      const yAxis = d3.axisLeft().scale(yScale);
 
-    //set axes
-    chart
-      .append("g")
-      .attr("id", "x-axis")
-      .attr("transform", `translate(0, ${height})`)
-      .call(xAxis);
+      //set axes
+      chart
+        .append("g")
+        .attr("id", "x-axis")
+        .attr("transform", `translate(0, ${height})`)
+        .call(xAxis);
 
-    chart
-      .append("g")
-      .attr("id", "y-axis")
-      .call(yAxis)
-      .append("text")
-      .attr("x", -20)
-      .attr("y", 20)
-      .attr("transform", "rotate(-90)")
-      .style("font-size", 16)
-      .attr("text-anchor", "end")
-      .style("fill", "black")
-      .text("Gross Domestic Product");
+      chart
+        .append("g")
+        .attr("id", "y-axis")
+        .call(yAxis)
+        .append("text")
+        .attr("x", -20)
+        .attr("y", 20)
+        .attr("transform", "rotate(-90)")
+        .style("font-size", 16)
+        .attr("text-anchor", "end")
+        .style("fill", "black")
+        .text("Gross Domestic Product");
 
-    //set data
-    chart
-      .append("g")
-      .selectAll("rect")
-      .data(mappedData)
-      .join("rect")
-      .attr("class", "bar")
-      .attr("data-date", (_, i) => data[i][0])
-      .attr("data-gdp", (d) => d.gdp)
-      .attr("width", (d) => width / mappedData.length)
-      .attr("height", (d) => height - yScale(d.gdp))
-      .attr("x", (d) => xScale(d.date))
-      .attr("y", (d) => yScale(d.gdp))
-      .on("mouseover", function () {
-        const hoveredBar = d3.select(this);
-        const d = hoveredBar.datum();
-        const timeFormatter = d3.timeFormat("%Y Q%q");
-        const gdpFormatter = d3.format("$,.1f");
+      //set data
+      chart
+        .append("g")
+        .selectAll("rect")
+        .data(mappedData)
+        .join("rect")
+        .attr("class", "bar")
+        .attr("data-date", (_, i) => data[i][0])
+        .attr("data-gdp", (d) => d.gdp)
+        .attr("width", (d) => barWidth)
+        .attr("height", (d) => height - yScale(d.gdp))
+        .attr("x", (d) => xScale(d.date) - barWidth / 2)
+        .attr("y", (d) => yScale(d.gdp))
+        .on("mouseover", function () {
+          const hoveredBar = d3.select(this);
+          const d = hoveredBar.datum();
+          const timeFormatter = d3.timeFormat("%Y Q%q");
+          const gdpFormatter = d3.format("$,.1f");
 
-        d3.select("#tooltip")
-          .html(`${timeFormatter(d.date)}<br>${gdpFormatter(d.gdp)} Billion`)
-          .attr("data-date", hoveredBar.attr("data-date"))
-          .style("left", `${Number(hoveredBar.attr("x")) + 80}px`)
-          .transition()
-          .style("opacity", 1);
-      })
-      .on("mouseout", function () {
-        d3.select("#tooltip").transition().style("opacity", 0);
-      });
-  });
+          d3.select("#tooltip")
+            .html(`${timeFormatter(d.date)}<br>${gdpFormatter(d.gdp)} Billion`)
+            .attr("data-date", hoveredBar.attr("data-date"))
+            .style("left", `${Number(hoveredBar.attr("x")) + 80}px`)
+            .transition()
+            .style("opacity", 0.9);
+        })
+        .on("mouseout", function () {
+          d3.select("#tooltip").transition().style("opacity", 0);
+        });
+    })
+    .catch((e) => {
+      console.log(e);
+    });
 };
 
 d3.select(document).on("DOMContentLoaded", () => {
